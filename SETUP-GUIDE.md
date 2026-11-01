@@ -22,15 +22,15 @@ They need to unzip `nev.zip` on their computer first, so the two `.json` files c
 4. **Connect accounts.** Any node with a red warning needs one. Click it, then Credential, then Create new.
    - **Telegram**: the bot token. Every Telegram node then uses it.
    - **Anthropic**: an API key from https://console.anthropic.com (a few dollars of credit is plenty). The two nodes named `Claude: ...` use it.
-5. **Settings.** Open the first node, **Nev settings**, and change `TELEGRAM_CHAT_ID`. Optional: `ME`, `EX_NAME`, `HOME` (latitude and longitude, used to find the closest sauna) and `TIMEZONE`.
-6. **Run it.** Click **Execute workflow**. Messages arrive in Telegram. Tap **Damage control** when it asks.
+5. **Settings.** Open the first node, **Nev settings**, and change `TELEGRAM_CHAT_ID` and `TELEGRAM_BOT_TOKEN` (the poll uses it). Optional: `ME`, `EX_NAME`, `HOME` (latitude and longitude, used to find the closest sauna) and `TIMEZONE`.
+6. **Run it.** Click **Execute workflow**. Messages arrive in Telegram. Tap **Fix it** on the poll.
 
 ## The full build
 Import `nev.json`. Everything lives in **Nev settings**, the node after the four triggers.
 
 | Service | What it does | n8n credential |
 |---|---|---|
-| Telegram bot | every message and the one choice | Telegram API |
+| Telegram bot | every message and the poll | Telegram API |
 | Anthropic | the report, the excuse, unknown merchants | Anthropic API |
 | Browser Use | Uber Eats, Sportsbet, the sauna | Header Auth, `X-Browser-Use-API-Key` |
 | Google Places | finds the closest sauna | Header Auth, `X-Goog-Api-Key` |

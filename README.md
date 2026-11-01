@@ -32,7 +32,7 @@ I've uploaded Nev, a free n8n automation. I have never used n8n or GitHub and I 
 ## What Nev sends you
 
 <p align="center">
-  <img src="assets/phone-run.png" alt="The messages Nev sends: on shift, care package ordered, the damage report, one choice, damage controlled" width="400">
+  <img src="assets/phone-run.png" alt="The messages Nev sends: on shift, care package ordered, the damage report, the poll, damage controlled" width="400">
 </p>
 
 ---
@@ -45,7 +45,7 @@ I've uploaded Nev, a free n8n automation. I have never used n8n or GitHub and I 
 | 👟 | **watches the night** | Every round, every Uber, and your steps between 12 and 2am. Bar after midnight plus a huge step count means it's a big one. |
 | 🍔 | **sorts the drop** | The second you wake up: a brekky burger, blue Powerade, Hydralyte and Panadol, ordered from your own Uber Eats. |
 | 🚨 | **rips the bandaid off** | The damage report. How many times you tried your ex, and what you spent on beers, kebabs and Sportsbet. |
-| 🛠️ | **gives you one choice** | Damage control, or raw-dog the Sunday scaries. |
+| 🛠️ | **gives you one choice** | A Telegram poll: Fix it, or Let me think. |
 | 🧖 | **fixes it** | Tap damage control: an excuse for your ex, your Sportsbet limit as low as it'll go, and the closest sauna booked for the afternoon. |
 
 ---

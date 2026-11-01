@@ -67,7 +67,7 @@
   },
   {
    "parameters": {
-    "jsCode": "// ============ NEV SETTINGS ============  edit these, nothing else. Setup: README.md\nconst settings = {\n  ME: 'Mate',\n  EX_NAME: 'your ex',\n  EX_NUMBER: '+61400000000',               // the real number, used by the optional ex line\n  EX_AUTO_SEND: false,                     // false = Nev writes the excuse and YOU decide. true = Twilio sends it\n  TELEGRAM_CHAT_ID: 'YOUR_TELEGRAM_CHAT_ID',\n  TWILIO_FROM: '+61400000000',\n  TIMEZONE: 'Australia/Perth',\n  HOME: { lat: -31.9523, lng: 115.8613, address: 'Your address, Suburb WA 6000' },\n  BIG_NIGHT_STEPS: 6000,                   // steps between midnight and 2am that mean \"a big one\"\n  FOOD: { store: \"McDonald's\", items: ['Big Brekkie Burger'], url: 'https://www.ubereats.com/au/search?q=McDonalds', capAud: 25 },\n  CHEMIST: { store: 'the closest convenience store or chemist', items: ['Blue Powerade', 'Hydralyte', 'Panadol'],\n             url: 'https://www.ubereats.com/au/search?q=Powerade', capAud: 40 },\n  SPORTSBET_LIMITS_URL: 'https://www.sportsbet.com.au/',   // paste the deposit limit page from your own account\n  SAUNA_TIME: '15:00',\n  SAUNA_CAP_AUD: 60,\n  MY_CALENDAR: 'primary',\n  BROWSER_PROFILE_ID: 'YOUR_BROWSER_USE_PROFILE_ID',       // the saved browser you logged in to once\n  AGENT_MAX_USD: 1,                        // the most one browser agent run may cost\n  FORCE_GO: false,                         // true = run the morning even if it wasn't a big one (for testing)\n  MODEL: 'claude-sonnet-5-5',\n};\nconst inp = $input.first().json;\nconst p = String(inp.webhookUrl || '');\nconst upEvent = (((inp.body || {}).data || {}).attributes || {}).eventType;\nconst lane = p.includes('nev-up') ? (upEvent === 'TRANSACTION_CREATED' ? 'up' : 'ignore') : p.includes('nev-ex') ? 'ex' : p.includes('nev-wake') ? 'wake' : 'tap';\nconst body = (inp.body && Object.keys(inp.body).length) ? inp.body : (inp.query || {});\nreturn [{ json: { ...settings, lane, input: body } }];\n"
+    "jsCode": "// ============ NEV SETTINGS ============  edit these, nothing else. Setup: README.md\nconst settings = {\n  ME: 'Mate',\n  EX_NAME: 'your ex',\n  EX_NUMBER: '+61400000000',               // the real number, used by the optional ex line\n  EX_AUTO_SEND: false,                     // false = Nev writes the excuse and YOU decide. true = Twilio sends it\n  TELEGRAM_CHAT_ID: 'YOUR_TELEGRAM_CHAT_ID',\n  TELEGRAM_BOT_TOKEN: 'YOUR_TELEGRAM_BOT_TOKEN',   // the poll needs it\n  TWILIO_FROM: '+61400000000',\n  TIMEZONE: 'Australia/Perth',\n  HOME: { lat: -31.9523, lng: 115.8613, address: 'Your address, Suburb WA 6000' },\n  BIG_NIGHT_STEPS: 6000,                   // steps between midnight and 2am that mean \"a big one\"\n  FOOD: { store: \"McDonald's\", items: ['Big Brekkie Burger'], url: 'https://www.ubereats.com/au/search?q=McDonalds', capAud: 25 },\n  CHEMIST: { store: 'the closest convenience store or chemist', items: ['Blue Powerade', 'Hydralyte', 'Panadol'],\n             url: 'https://www.ubereats.com/au/search?q=Powerade', capAud: 40 },\n  SPORTSBET_LIMITS_URL: 'https://www.sportsbet.com.au/',   // paste the deposit limit page from your own account\n  SAUNA_TIME: '15:00',\n  SAUNA_CAP_AUD: 60,\n  MY_CALENDAR: 'primary',\n  BROWSER_PROFILE_ID: 'YOUR_BROWSER_USE_PROFILE_ID',       // the saved browser you logged in to once\n  AGENT_MAX_USD: 1,                        // the most one browser agent run may cost\n  FORCE_GO: false,                         // true = run the morning even if it wasn't a big one (for testing)\n  MODEL: 'claude-sonnet-5-5',\n};\nconst inp = $input.first().json;\nconst p = String(inp.webhookUrl || '');\nconst upEvent = (((inp.body || {}).data || {}).attributes || {}).eventType;\nconst lane = p.includes('nev-up') ? (upEvent === 'TRANSACTION_CREATED' ? 'up' : 'ignore') : p.includes('nev-ex') ? 'ex' : p.includes('nev-wake') ? 'wake' : 'tap';\nconst body = (inp.body && Object.keys(inp.body).length) ? inp.body : (inp.query || {});\nreturn [{ json: { ...settings, lane, input: body } }];\n"
    },
    "name": "Nev settings",
    "type": "n8n-nodes-base.code",
@@ -703,58 +703,13 @@
   },
   {
    "parameters": {
-    "jsCode": "// Hands the night to Claude. It writes the report, the numbers stay ours.\nconst S = $('Nev settings').first().json;\nconst n = $('Was it a big one?').first().json;\nconst money = v => '$' + Number(v).toFixed(2).replace(/\\.00$/, '');\nconst facts = { steps_midnight_to_2am: n.steps, calls_or_texts_to_ex: n.exAttempts, ex_name: S.EX_NAME,\n  beers: money(n.beers), kebabs_and_late_food: money(n.kebabs), sportsbet: money(n.sportsbet),\n  ubers: money(n.ubers), total: money(n.total) };\nconst prompt = `You are Nev, a deadpan Australian nurse who looks after ${S.ME} the morning after a big night.\nWrite the damage report for Telegram from these facts only. Never invent a number or a detail.\n${JSON.stringify(facts)}\nRules: start with one dry line. Then one short line each for the ex attempts, beers, kebabs, Sportsbet and the total, each with an emoji.\nUnder 70 words. Plain text only. Rip the bandaid off, but be on their side. No em dashes.`;\nreturn [{ json: { body: { model: S.MODEL, max_tokens: 2000, messages: [{ role: 'user', content: prompt }] } } }];\n"
-   },
-   "name": "Write the report prompt",
-   "type": "n8n-nodes-base.code",
-   "typeVersion": 2,
-   "position": [
-    240,
-    1568
-   ]
-  },
-  {
-   "parameters": {
-    "method": "POST",
-    "url": "https://api.anthropic.com/v1/messages",
-    "options": {
-     "timeout": 90000
-    },
-    "sendHeaders": true,
-    "headerParameters": {
-     "parameters": [
-      {
-       "name": "anthropic-version",
-       "value": "2023-06-01"
-      }
-     ]
-    },
-    "sendBody": true,
-    "specifyBody": "json",
-    "jsonBody": "={{ JSON.stringify($json.body) }}",
-    "authentication": "predefinedCredentialType",
-    "nodeCredentialType": "anthropicApi"
-   },
-   "name": "Claude: damage report",
-   "type": "n8n-nodes-base.httpRequest",
-   "typeVersion": 4.2,
-   "position": [
-    416,
-    1568
-   ],
-   "retryOnFail": true,
-   "maxTries": 3,
-   "waitBetweenTries": 2000
-  },
-  {
-   "parameters": {
-    "jsCode": "const text = $input.first().json.content.map(c => c.text || '').join('').trim();\nif (!text) throw new Error('Claude returned no text for the damage report');\nreturn [{ json: { report: '🚨 <b>THE DAMAGE REPORT</b>\\n\\n' + text.replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c])) } }];\n"
+    "jsCode": "// The damage report. Numbers only, on purpose: Aaron cut every quip.\nconst S = $('Nev settings').first().json;\nconst n = $('Was it a big one?').first().json;\nconst money = v => '$' + Number(v).toFixed(2).replace(/\\.00$/, '');\nconst report = ['🚨 THE DAMAGE REPORT', '',\n  `📱 Calls to ${S.EX_NAME}: ${n.exAttempts}`,\n  `🍺 Beers: ${money(n.beers)}`,\n  `🥙 Kebabs: ${money(n.kebabs)}`,\n  `🎰 Sportsbet: ${money(n.sportsbet)}`,\n  `💸 Total: ${money(n.beers + n.kebabs + n.sportsbet)}`].join('\\n');   // adds up to the lines above\nreturn [{ json: { report } }];\n"
    },
    "name": "The damage report",
    "type": "n8n-nodes-base.code",
    "typeVersion": 2,
    "position": [
-    592,
+    240,
     1568
    ]
   },
@@ -772,39 +727,88 @@
    "type": "n8n-nodes-base.telegram",
    "typeVersion": 1.2,
    "position": [
+    416,
+    1568
+   ]
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "=https://api.telegram.org/bot{{ $('Nev settings').first().json.TELEGRAM_BOT_TOKEN }}/sendPoll",
+    "options": {
+     "timeout": 30000
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify({ chat_id: $('Nev settings').first().json.TELEGRAM_CHAT_ID, question: 'What do you want to do?', options: ['🛠️ Fix it', '🤔 Let me think'], is_anonymous: false }) }}"
+   },
+   "name": "Send the poll",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    592,
+    1568
+   ]
+  },
+  {
+   "parameters": {
+    "method": "GET",
+    "url": "=https://api.telegram.org/bot{{ $('Nev settings').first().json.TELEGRAM_BOT_TOKEN }}/getUpdates?timeout=0&limit=100&allowed_updates=%5B%22poll_answer%22%5D",
+    "options": {
+     "timeout": 30000
+    }
+   },
+   "name": "Any answer yet?",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
     768,
     1568
    ]
   },
   {
    "parameters": {
-    "operation": "sendAndWait",
-    "chatId": "={{ $('Nev settings').first().json.TELEGRAM_CHAT_ID }}",
-    "message": "=How do you want to play this? Damage control, or raw-dog the Sunday scaries?",
-    "responseType": "approval",
-    "approvalOptions": {
-     "values": {
-      "approvalType": "double",
-      "approveLabel": "🛠️ Damage control",
-      "disapproveLabel": "🫠 Raw-dog the Sunday scaries"
-     }
-    },
-    "options": {
-     "appendAttribution": false,
-     "limitWaitTime": {
-      "values": {
-       "limitType": "afterTimeInterval",
-       "resumeAmount": 240,
-       "resumeUnit": "minutes"
-      }
-     }
-    }
+    "jsCode": "// Has the poll been tapped? Matched on THIS poll's id, because Telegram keeps old answers around.\nconst pollId = String($('Send the poll').first().json.result.poll.id);\nlet a = null;\nfor (const u of $input.first().json.result || []) {\n  const p = u.poll_answer;\n  if (p && String(p.poll_id) === pollId && (p.option_ids || []).length) a = p;   // last tap wins\n}\nconst giveUp = !a && ($runIndex || 0) >= 480;   // no tap in time counts as \"let me think\"\nreturn [{ json: { answered: !!a || giveUp, data: { approved: !!a && a.option_ids[0] === 0 } } }];\n"
    },
-   "name": "One choice",
-   "type": "n8n-nodes-base.telegram",
-   "typeVersion": 1.2,
+   "name": "Read the vote",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
    "position": [
     944,
+    1568
+   ]
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "c1",
+       "leftValue": "={{ $json.answered }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "looseTypeValidation": true,
+    "options": {}
+   },
+   "name": "Tapped?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2,
+   "position": [
+    1120,
     1568
    ]
   },
@@ -834,11 +838,11 @@
     "looseTypeValidation": true,
     "options": {}
    },
-   "name": "Damage control?",
+   "name": "Fix it?",
    "type": "n8n-nodes-base.if",
    "typeVersion": 2,
    "position": [
-    1120,
+    1296,
     1568
    ]
   },
@@ -850,7 +854,7 @@
    "type": "n8n-nodes-base.code",
    "typeVersion": 2,
    "position": [
-    1296,
+    1472,
     1568
    ]
   },
@@ -880,7 +884,7 @@
    "type": "n8n-nodes-base.httpRequest",
    "typeVersion": 4.2,
    "position": [
-    1472,
+    1648,
     1568
    ],
    "retryOnFail": true,
@@ -895,23 +899,19 @@
    "type": "n8n-nodes-base.code",
    "typeVersion": 2,
    "position": [
-    1648,
+    1824,
     1568
    ]
   },
   {
    "parameters": {
-    "chatId": "={{ $('Nev settings').first().json.TELEGRAM_CHAT_ID }}",
-    "text": "=🫠 <b>Your funeral.</b> Hydralyte's at the door. Nev's off shift.",
-    "additionalFields": {
-     "parse_mode": "HTML",
-     "appendAttribution": false,
-     "disable_web_page_preview": true
-    }
+    "resume": "timeInterval",
+    "amount": 30,
+    "unit": "seconds"
    },
-   "name": "Text: raw-dog it",
-   "type": "n8n-nodes-base.telegram",
-   "typeVersion": 1.2,
+   "name": "Hold, then check again",
+   "type": "n8n-nodes-base.wait",
+   "typeVersion": 1.1,
    "position": [
     1120,
     1800
@@ -919,12 +919,30 @@
   },
   {
    "parameters": {
-    "content": "## 🚨 The damage report\nClaude writes it from your real night. Then you get one choice.",
-    "width": 1588,
+    "chatId": "={{ $('Nev settings').first().json.TELEGRAM_CHAT_ID }}",
+    "text": "=🤔 All good. Nev's on standby.",
+    "additionalFields": {
+     "parse_mode": "HTML",
+     "appendAttribution": false,
+     "disable_web_page_preview": true
+    }
+   },
+   "name": "Text: let me think",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    1296,
+    1800
+   ]
+  },
+  {
+   "parameters": {
+    "content": "## 🚨 The damage report\nThe numbers from your real night, then a real Telegram poll.",
+    "width": 1764,
     "height": 620,
     "color": 3
    },
-   "name": "note-45",
+   "name": "note-47",
    "type": "n8n-nodes-base.stickyNote",
    "typeVersion": 1,
    "position": [
@@ -1311,7 +1329,7 @@
     "height": 470,
     "color": 5
    },
-   "name": "note-63",
+   "name": "note-65",
    "type": "n8n-nodes-base.stickyNote",
    "typeVersion": 1,
    "position": [
@@ -1697,28 +1715,6 @@
    "main": [
     [
      {
-      "node": "Write the report prompt",
-      "type": "main",
-      "index": 0
-     }
-    ]
-   ]
-  },
-  "Write the report prompt": {
-   "main": [
-    [
-     {
-      "node": "Claude: damage report",
-      "type": "main",
-      "index": 0
-     }
-    ]
-   ]
-  },
-  "Claude: damage report": {
-   "main": [
-    [
-     {
       "node": "The damage report",
       "type": "main",
       "index": 0
@@ -1741,25 +1737,65 @@
    "main": [
     [
      {
-      "node": "One choice",
+      "node": "Send the poll",
       "type": "main",
       "index": 0
      }
     ]
    ]
   },
-  "One choice": {
+  "Send the poll": {
    "main": [
     [
      {
-      "node": "Damage control?",
+      "node": "Any answer yet?",
       "type": "main",
       "index": 0
      }
     ]
    ]
   },
-  "Damage control?": {
+  "Any answer yet?": {
+   "main": [
+    [
+     {
+      "node": "Read the vote",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Read the vote": {
+   "main": [
+    [
+     {
+      "node": "Tapped?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Tapped?": {
+   "main": [
+    [
+     {
+      "node": "Fix it?",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Hold, then check again",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Fix it?": {
    "main": [
     [
      {
@@ -1770,7 +1806,7 @@
     ],
     [
      {
-      "node": "Text: raw-dog it",
+      "node": "Text: let me think",
       "type": "main",
       "index": 0
      }
@@ -1793,6 +1829,17 @@
     [
      {
       "node": "Brief: Sportsbet",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Hold, then check again": {
+   "main": [
+    [
+     {
+      "node": "Any answer yet?",
       "type": "main",
       "index": 0
      }
