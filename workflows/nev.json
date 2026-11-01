@@ -1,0 +1,2021 @@
+{
+ "name": "🚑 NEV - hangover (the full build)",
+ "nodes": [
+  {
+   "parameters": {
+    "path": "nev-tap",
+    "httpMethod": "POST",
+    "responseMode": "onReceived",
+    "options": {}
+   },
+   "name": "Card tap (iPhone Wallet)",
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2,
+   "position": [
+    40,
+    208
+   ]
+  },
+  {
+   "parameters": {
+    "path": "nev-up",
+    "httpMethod": "POST",
+    "responseMode": "onReceived",
+    "options": {}
+   },
+   "name": "Card tap (Up Bank)",
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2,
+   "position": [
+    40,
+    368
+   ]
+  },
+  {
+   "parameters": {
+    "path": "nev-ex",
+    "httpMethod": "POST",
+    "responseMode": "lastNode",
+    "options": {
+     "responseContentType": "text/xml",
+     "responsePropertyName": "twiml"
+    },
+    "responseData": "firstEntryJson"
+   },
+   "name": "Ex line",
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2,
+   "position": [
+    40,
+    528
+   ]
+  },
+  {
+   "parameters": {
+    "path": "nev-wake",
+    "httpMethod": "POST",
+    "responseMode": "onReceived",
+    "options": {}
+   },
+   "name": "Wake-up (iPhone Shortcut)",
+   "type": "n8n-nodes-base.webhook",
+   "typeVersion": 2,
+   "position": [
+    40,
+    688
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "// ============ NEV SETTINGS ============  edit these, nothing else. Setup: README.md\nconst settings = {\n  ME: 'Mate',\n  EX_NAME: 'your ex',\n  EX_NUMBER: '+61400000000',               // the real number, used by the optional ex line\n  EX_AUTO_SEND: false,                     // false = Nev writes the excuse and YOU decide. true = Twilio sends it\n  TELEGRAM_CHAT_ID: 'YOUR_TELEGRAM_CHAT_ID',\n  TWILIO_FROM: '+61400000000',\n  TIMEZONE: 'Australia/Perth',\n  HOME: { lat: -31.9523, lng: 115.8613, address: 'Your address, Suburb WA 6000' },\n  BIG_NIGHT_STEPS: 6000,                   // steps between midnight and 2am that mean \"a big one\"\n  FOOD: { store: \"McDonald's\", items: ['Big Brekkie Burger'], url: 'https://www.ubereats.com/au/search?q=McDonalds', capAud: 25 },\n  CHEMIST: { store: 'the closest convenience store or chemist', items: ['Blue Powerade', 'Hydralyte', 'Panadol'],\n             url: 'https://www.ubereats.com/au/search?q=Powerade', capAud: 40 },\n  SPORTSBET_LIMITS_URL: 'https://www.sportsbet.com.au/',   // paste the deposit limit page from your own account\n  SAUNA_TIME: '15:00',\n  SAUNA_CAP_AUD: 60,\n  MY_CALENDAR: 'primary',\n  BROWSER_PROFILE_ID: 'YOUR_BROWSER_USE_PROFILE_ID',       // the saved browser you logged in to once\n  AGENT_MAX_USD: 1,                        // the most one browser agent run may cost\n  FORCE_GO: false,                         // true = run the morning even if it wasn't a big one (for testing)\n  MODEL: 'claude-sonnet-5-5',\n};\nconst inp = $input.first().json;\nconst p = String(inp.webhookUrl || '');\nconst upEvent = (((inp.body || {}).data || {}).attributes || {}).eventType;\nconst lane = p.includes('nev-up') ? (upEvent === 'TRANSACTION_CREATED' ? 'up' : 'ignore') : p.includes('nev-ex') ? 'ex' : p.includes('nev-wake') ? 'wake' : 'tap';\nconst body = (inp.body && Object.keys(inp.body).length) ? inp.body : (inp.query || {});\nreturn [{ json: { ...settings, lane, input: body } }];\n"
+   },
+   "name": "Nev settings",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    240,
+    368
+   ]
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "c1",
+       "leftValue": "={{ ['tap','up'].includes($json.lane) }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "looseTypeValidation": true,
+    "options": {}
+   },
+   "name": "Is it a card tap?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2,
+   "position": [
+    416,
+    368
+   ]
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "c1",
+       "leftValue": "={{ $json.lane === 'up' }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "looseTypeValidation": true,
+    "options": {}
+   },
+   "name": "From Up?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2,
+   "position": [
+    592,
+    368
+   ]
+  },
+  {
+   "parameters": {
+    "method": "GET",
+    "url": "=https://api.up.com.au/api/v1/transactions/{{ $('Nev settings').first().json.input.data.relationships.transaction.data.id }}",
+    "options": {
+     "timeout": 30000
+    },
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth"
+   },
+   "name": "Up: get the transaction",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    768,
+    368
+   ],
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 2000
+  },
+  {
+   "parameters": {
+    "jsCode": "const KIND_RULES = [\n  ['sportsbet', /sportsbet|ladbrokes|tab\\b|neds|bet365|betr\\b|pointsbet|unibet/i],\n  ['kebab', /kebab|hsp|souvlaki|gyro|pizza|maccas|mcdonald|hungry jack|kfc|red rooster|chicken treat|takeaway/i],\n  ['uber', /uber|didi|ola\\b|taxi|13cabs/i],\n  ['bar', /\\bbar\\b|pub\\b|tavern|hotel|brewery|brewing|nightclub|club\\b|lounge|arms\\b|inn\\b|anchor/i],\n];\nconst kindOf = (m, upCategory) => {\n  if (upCategory === 'pubs-and-bars') return 'bar';\n  for (const [k, re] of KIND_RULES) if (re.test(m || '')) return k;\n  return 'unknown';\n};\n\n// One card tap, from the iPhone Wallet Shortcut or Up Bank, in one shape.\nconst S = $('Nev settings').first().json;\nlet merchant, amount, upCategory;\nif (S.lane === 'up') {\n  const d = $input.first().json.data;\n  merchant = d.attributes.description;\n  amount = Math.max(0, -(+d.attributes.amount.value));   // money in (refunds, pay) doesn't count\n  upCategory = d.relationships && d.relationships.category && d.relationships.category.data && d.relationships.category.data.id;\n} else {\n  merchant = String(S.input.merchant || S.input.name || 'Unknown');\n  amount = Math.abs(parseFloat(String(S.input.amount || '0').replace(/[^0-9.\\-]/g, '')) || 0);\n}\nconst at = S.input.at || new Intl.DateTimeFormat('en-GB', { timeZone: S.TIMEZONE, hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date());\nreturn [{ json: { merchant, amount, at, kind: kindOf(merchant, upCategory),\n  body: { model: S.MODEL, max_tokens: 1000, messages: [{ role: 'user', content:\n    `A card transaction at \"${merchant}\". Reply with one word: bar, kebab, sportsbet, uber or other. \"bar\" means pubs, bars and clubs. \"kebab\" means any late-night food.` }] } } }];\n"
+   },
+   "name": "Read the tap",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    944,
+    368
+   ]
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "c1",
+       "leftValue": "={{ $json.kind === 'unknown' }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "looseTypeValidation": true,
+    "options": {}
+   },
+   "name": "Don't know this merchant?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2,
+   "position": [
+    1120,
+    368
+   ]
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "https://api.anthropic.com/v1/messages",
+    "options": {
+     "timeout": 90000
+    },
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "anthropic-version",
+       "value": "2023-06-01"
+      }
+     ]
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify($json.body) }}",
+    "authentication": "predefinedCredentialType",
+    "nodeCredentialType": "anthropicApi"
+   },
+   "name": "Claude: what is this?",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1296,
+    368
+   ],
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 2000
+  },
+  {
+   "parameters": {
+    "jsCode": "const t = $('Read the tap').first().json;\nconst w = $input.first().json.content.map(c => c.text || '').join('').trim().toLowerCase();\nreturn [{ json: { ...t, kind: ['bar', 'kebab', 'sportsbet', 'uber'].includes(w) ? w : 'other' } }];\n"
+   },
+   "name": "Claude's answer",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1472,
+    368
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "// Tonight's tab lives in this workflow's own memory. A new night starts at midday.\nconst S = $('Nev settings').first().json;\nconst t = $input.first().json;\nconst st = $getWorkflowStaticData('global');\nconst date = new Intl.DateTimeFormat('en-CA', { timeZone: S.TIMEZONE }).format(new Date(Date.now() - 12 * 3600e3));\nif (!st.night || st.night.date !== date) st.night = { date, tabs: [], exAttempts: 0, started: false, woke: false };\nconst n = st.night;\nn.tabs.push({ at: t.at, merchant: t.merchant, amount: t.amount, kind: t.kind });\nconst afterMidnight = t.at < '06:00';\nconst startNow = t.kind === 'bar' && afterMidnight && !n.started;\nif (startNow) n.started = true;\nreturn [{ json: { ...t, startNow } }];\n"
+   },
+   "name": "Log the tap",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1648,
+    368
+   ]
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "c1",
+       "leftValue": "={{ $json.startNow }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "looseTypeValidation": true,
+    "options": {}
+   },
+   "name": "First bar after midnight?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2,
+   "position": [
+    1824,
+    368
+   ]
+  },
+  {
+   "parameters": {
+    "chatId": "={{ $('Nev settings').first().json.TELEGRAM_CHAT_ID }}",
+    "text": "=🩺 <b>Nev's on shift.</b>\n{{ $json.merchant }}, ${{ $json.amount }}, after midnight.\nTomorrow's care package is started. Carry on.",
+    "additionalFields": {
+     "parse_mode": "HTML",
+     "appendAttribution": false,
+     "disable_web_page_preview": true
+    }
+   },
+   "name": "Text: Nev's on shift",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    2000,
+    368
+   ]
+  },
+  {
+   "parameters": {
+    "content": "## 🌙 The night\nEvery card tap is logged. The first bar tap after midnight starts the care package.",
+    "width": 1940,
+    "height": 470,
+    "color": 7
+   },
+   "name": "note-15",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    200,
+    180
+   ]
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "c1",
+       "leftValue": "={{ $('Nev settings').first().json.lane === 'ex' }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "looseTypeValidation": true,
+    "options": {}
+   },
+   "name": "Calling the ex?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2,
+   "position": [
+    240,
+    768
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "// One attempt on the ex. Counts only. Nev never records a call or reads a message.\nconst S = $('Nev settings').first().json;\nconst st = $getWorkflowStaticData('global');\nconst date = new Intl.DateTimeFormat('en-CA', { timeZone: S.TIMEZONE }).format(new Date(Date.now() - 12 * 3600e3));\nif (!st.night || st.night.date !== date) st.night = { date, tabs: [], exAttempts: 0, started: false, woke: false };\nst.night.exAttempts += 1;\nconst num = S.EX_NUMBER.replace(/[^+0-9]/g, '');\nreturn [{ json: { twiml: `<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response><Dial>${num}</Dial></Response>` } }];\n"
+   },
+   "name": "Count it",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    416,
+    768
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "// You're awake. Was it a big one? Bar taps after midnight AND the step count.\nconst S = $('Nev settings').first().json;\nconst st = $getWorkflowStaticData('global');\nconst n = st.night || { tabs: [], exAttempts: 0 };\nconst steps = parseInt(String(S.input.steps ?? S.input.steps_12_2 ?? '0').replace(/[^0-9]/g, ''), 10) || 0;\nconst tabs = n.tabs || [];\nconst sum = k => tabs.filter(t => t.kind === k).reduce((a, t) => a + t.amount, 0);\nconst bigOne = !!n.started && steps >= S.BIG_NIGHT_STEPS;\nconst go = S.lane === 'wake' && (bigOne || S.FORCE_GO) && !n.woke;\nif (go && st.night) st.night.woke = true;\nreturn [{ json: { go, tabs, steps, exAttempts: n.exAttempts || 0,\n  beers: sum('bar'), kebabs: sum('kebab'), sportsbet: sum('sportsbet'), ubers: sum('uber'),\n  total: tabs.reduce((a, t) => a + t.amount, 0) } }];\n"
+   },
+   "name": "Was it a big one?",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    240,
+    1168
+   ]
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "c1",
+       "leftValue": "={{ $json.go }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "looseTypeValidation": true,
+    "options": {}
+   },
+   "name": "Go?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2,
+   "position": [
+    416,
+    1168
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "// The workaround: Uber Eats has no public ordering API, so a browser agent uses your own\n// logged-in account the way you would. It stops rather than guesses.\nconst S = $('Nev settings').first().json;\nconst o = S.FOOD;\nconst task = `You are logged in to the user's own Uber Eats account. Deliver to ${S.HOME.address}, using the saved address and saved payment method.\nOrder from ${o.store}: ${o.items.join(', ')}. If an item is sold out, pick the nearest equivalent. Never add anything else.\nStop WITHOUT ordering and return ordered=false with the reason if: the total including fees is over A$${o.capAud}; you are logged out; a CAPTCHA, a code or a security check appears; or the store is closed.\nDo not try to get around any of those. Otherwise place the order and return ordered=true, the total and the ETA.`;\nconst run = { task, startUrl: o.url, profileId: S.BROWSER_PROFILE_ID, maxCostUsd: S.AGENT_MAX_USD,\n  outputSchema: { type: 'object', properties: { ordered: { type: 'boolean' }, total: { type: 'number' }, eta: { type: 'string' }, reason: { type: 'string' } }, required: ['ordered', 'reason'] } };\nreturn [{ json: { run } }];\n"
+   },
+   "name": "Brief: food",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    592,
+    1168
+   ]
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "https://api.browser-use.com/api/v4/runs",
+    "options": {
+     "timeout": 30000
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify($json.run) }}",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth"
+   },
+   "name": "Agent: start (food)",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    768,
+    1168
+   ]
+  },
+  {
+   "parameters": {
+    "resume": "timeInterval",
+    "amount": 30,
+    "unit": "seconds"
+   },
+   "name": "Wait 30s (food)",
+   "type": "n8n-nodes-base.wait",
+   "typeVersion": 1.1,
+   "position": [
+    944,
+    1168
+   ]
+  },
+  {
+   "parameters": {
+    "method": "GET",
+    "url": "=https://api.browser-use.com/api/v4/runs/{{ $('Agent: start (food)').first().json.id }}",
+    "options": {
+     "timeout": 30000
+    },
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth"
+   },
+   "name": "Agent: status (food)",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1120,
+    1168
+   ],
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 2000
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "c1",
+       "leftValue": "={{ ['completed','failed','cancelled'].includes($json.status) }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "looseTypeValidation": true,
+    "options": {}
+   },
+   "name": "Agent done? (food)",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2,
+   "position": [
+    1296,
+    1168
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "const S = $('Nev settings').first().json;\nconst o = S.FOOD;\nconst out = $input.first().json.output || {};\nconst ok = $input.first().json.status === 'completed' && out.ordered === true;\nreturn [{ json: { ok, store: o.store, items: o.items, url: o.url, total: out.total, eta: out.eta || '', reason: out.reason || 'the agent stopped' } }];\n"
+   },
+   "name": "Result (food)",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1472,
+    1168
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "// The workaround: Uber Eats has no public ordering API, so a browser agent uses your own\n// logged-in account the way you would. It stops rather than guesses.\nconst S = $('Nev settings').first().json;\nconst o = S.CHEMIST;\nconst task = `You are logged in to the user's own Uber Eats account. Deliver to ${S.HOME.address}, using the saved address and saved payment method.\nOrder from ${o.store}: ${o.items.join(', ')}. If an item is sold out, pick the nearest equivalent. Never add anything else.\nStop WITHOUT ordering and return ordered=false with the reason if: the total including fees is over A$${o.capAud}; you are logged out; a CAPTCHA, a code or a security check appears; or the store is closed.\nDo not try to get around any of those. Otherwise place the order and return ordered=true, the total and the ETA.`;\nconst run = { task, startUrl: o.url, profileId: S.BROWSER_PROFILE_ID, maxCostUsd: S.AGENT_MAX_USD,\n  outputSchema: { type: 'object', properties: { ordered: { type: 'boolean' }, total: { type: 'number' }, eta: { type: 'string' }, reason: { type: 'string' } }, required: ['ordered', 'reason'] } };\nreturn [{ json: { run } }];\n"
+   },
+   "name": "Brief: chemist",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1648,
+    1168
+   ]
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "https://api.browser-use.com/api/v4/runs",
+    "options": {
+     "timeout": 30000
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify($json.run) }}",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth"
+   },
+   "name": "Agent: start (chemist)",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1824,
+    1168
+   ]
+  },
+  {
+   "parameters": {
+    "resume": "timeInterval",
+    "amount": 30,
+    "unit": "seconds"
+   },
+   "name": "Wait 30s (chemist)",
+   "type": "n8n-nodes-base.wait",
+   "typeVersion": 1.1,
+   "position": [
+    2000,
+    1168
+   ]
+  },
+  {
+   "parameters": {
+    "method": "GET",
+    "url": "=https://api.browser-use.com/api/v4/runs/{{ $('Agent: start (chemist)').first().json.id }}",
+    "options": {
+     "timeout": 30000
+    },
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth"
+   },
+   "name": "Agent: status (chemist)",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    2176,
+    1168
+   ],
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 2000
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "c1",
+       "leftValue": "={{ ['completed','failed','cancelled'].includes($json.status) }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "looseTypeValidation": true,
+    "options": {}
+   },
+   "name": "Agent done? (chemist)",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2,
+   "position": [
+    2352,
+    1168
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "const S = $('Nev settings').first().json;\nconst o = S.CHEMIST;\nconst out = $input.first().json.output || {};\nconst ok = $input.first().json.status === 'completed' && out.ordered === true;\nreturn [{ json: { ok, store: o.store, items: o.items, url: o.url, total: out.total, eta: out.eta || '', reason: out.reason || 'the agent stopped' } }];\n"
+   },
+   "name": "Result (chemist)",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    2528,
+    1168
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "// Anything the agent couldn't finish becomes a link you tap yourself.\nconst a = $('Result (food)').first().json, b = $('Result (chemist)').first().json;\nconst line = (e, r) => r.ok ? `${e} ${r.items.join(', ')}${r.eta ? ` · ${r.eta}` : ''}`\n  : `${e} ${r.items.join(', ')}\\n⚠️ ${r.reason}\\n<a href=\"${r.url}\">Tap here to order it yourself</a>`;\nconst head = a.ok && b.ok ? \"💊 <b>You're awake. Care package ordered.</b>\" : \"💊 <b>You're awake. Care package nearly sorted.</b>\";\nreturn [{ json: { msg: `${head}\\n\\n${line('🍔', a)}\\n${line('🥤', b)}` } }];\n"
+   },
+   "name": "Write the drop",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    2704,
+    1168
+   ]
+  },
+  {
+   "parameters": {
+    "chatId": "={{ $('Nev settings').first().json.TELEGRAM_CHAT_ID }}",
+    "text": "={{ $json.msg }}",
+    "additionalFields": {
+     "parse_mode": "HTML",
+     "appendAttribution": false,
+     "disable_web_page_preview": true
+    }
+   },
+   "name": "Text: the drop",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    2880,
+    1168
+   ]
+  },
+  {
+   "parameters": {
+    "content": "## 🍔 The drop\nNo Uber Eats ordering API exists, so browser agents use your own account. Anything they can't finish becomes a tap-to-order link.",
+    "width": 2820,
+    "height": 470,
+    "color": 4
+   },
+   "name": "note-34",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    200,
+    980
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "// Hands the night to Claude. It writes the report, the numbers stay ours.\nconst S = $('Nev settings').first().json;\nconst n = $('Was it a big one?').first().json;\nconst money = v => '$' + Number(v).toFixed(2).replace(/\\.00$/, '');\nconst facts = { steps_midnight_to_2am: n.steps, calls_or_texts_to_ex: n.exAttempts, ex_name: S.EX_NAME,\n  beers: money(n.beers), kebabs_and_late_food: money(n.kebabs), sportsbet: money(n.sportsbet),\n  ubers: money(n.ubers), total: money(n.total) };\nconst prompt = `You are Nev, a deadpan Australian nurse who looks after ${S.ME} the morning after a big night.\nWrite the damage report for Telegram from these facts only. Never invent a number or a detail.\n${JSON.stringify(facts)}\nRules: start with one dry line. Then one short line each for the ex attempts, beers, kebabs, Sportsbet and the total, each with an emoji.\nUnder 70 words. Plain text only. Rip the bandaid off, but be on their side. No em dashes.`;\nreturn [{ json: { body: { model: S.MODEL, max_tokens: 2000, messages: [{ role: 'user', content: prompt }] } } }];\n"
+   },
+   "name": "Write the report prompt",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    240,
+    1568
+   ]
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "https://api.anthropic.com/v1/messages",
+    "options": {
+     "timeout": 90000
+    },
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "anthropic-version",
+       "value": "2023-06-01"
+      }
+     ]
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify($json.body) }}",
+    "authentication": "predefinedCredentialType",
+    "nodeCredentialType": "anthropicApi"
+   },
+   "name": "Claude: damage report",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    416,
+    1568
+   ],
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 2000
+  },
+  {
+   "parameters": {
+    "jsCode": "const text = $input.first().json.content.map(c => c.text || '').join('').trim();\nif (!text) throw new Error('Claude returned no text for the damage report');\nreturn [{ json: { report: '🚨 <b>THE DAMAGE REPORT</b>\\n\\n' + text.replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c])) } }];\n"
+   },
+   "name": "The damage report",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    592,
+    1568
+   ]
+  },
+  {
+   "parameters": {
+    "chatId": "={{ $('Nev settings').first().json.TELEGRAM_CHAT_ID }}",
+    "text": "={{ $json.report }}",
+    "additionalFields": {
+     "parse_mode": "HTML",
+     "appendAttribution": false,
+     "disable_web_page_preview": true
+    }
+   },
+   "name": "Text: damage report",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    768,
+    1568
+   ]
+  },
+  {
+   "parameters": {
+    "operation": "sendAndWait",
+    "chatId": "={{ $('Nev settings').first().json.TELEGRAM_CHAT_ID }}",
+    "message": "=How do you want to play this? Damage control, or raw-dog the Sunday scaries?",
+    "responseType": "approval",
+    "approvalOptions": {
+     "values": {
+      "approvalType": "double",
+      "approveLabel": "🛠️ Damage control",
+      "disapproveLabel": "🫠 Raw-dog the Sunday scaries"
+     }
+    },
+    "options": {
+     "appendAttribution": false,
+     "limitWaitTime": {
+      "values": {
+       "limitType": "afterTimeInterval",
+       "resumeAmount": 240,
+       "resumeUnit": "minutes"
+      }
+     }
+    }
+   },
+   "name": "One choice",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    944,
+    1568
+   ]
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "c1",
+       "leftValue": "={{ $json.data.approved }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "looseTypeValidation": true,
+    "options": {}
+   },
+   "name": "Damage control?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2,
+   "position": [
+    1120,
+    1568
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "const S = $('Nev settings').first().json;\nconst n = $('Was it a big one?').first().json;\nconst prompt = `${S.ME} tried to contact their ex ${S.EX_NAME} ${n.exAttempts} times last night while drunk.\nWrite the text ${S.ME} sends this morning: a short, funny, face-saving apology that asks for nothing and doesn't reopen anything.\nUnder 25 words. No emojis. No em dashes. Output only the message.`;\nreturn [{ json: { body: { model: S.MODEL, max_tokens: 1500, messages: [{ role: 'user', content: prompt }] } } }];\n"
+   },
+   "name": "Write the excuse prompt",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1296,
+    1568
+   ]
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "https://api.anthropic.com/v1/messages",
+    "options": {
+     "timeout": 90000
+    },
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "anthropic-version",
+       "value": "2023-06-01"
+      }
+     ]
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify($json.body) }}",
+    "authentication": "predefinedCredentialType",
+    "nodeCredentialType": "anthropicApi"
+   },
+   "name": "Claude: the excuse",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1472,
+    1568
+   ],
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 2000
+  },
+  {
+   "parameters": {
+    "jsCode": "// Sportsbet has no public API, so this is a browser agent too. It can only ever go DOWN.\nconst S = $('Nev settings').first().json;\nconst task = `You are logged in to the user's own Sportsbet account. Open the deposit limit settings.\nSet the daily deposit limit to the lowest amount the site accepts (zero if it allows zero).\nOnly ever lower a limit. Never raise a limit, deposit, withdraw or place a bet.\nStop and return done=false with the reason if you are logged out or a CAPTCHA, code or security check appears. Do not try to get around them.\nReturn done=true and the new limit once the site confirms it.`;\nreturn [{ json: { run: { task, startUrl: S.SPORTSBET_LIMITS_URL, profileId: S.BROWSER_PROFILE_ID, maxCostUsd: S.AGENT_MAX_USD,\n  outputSchema: { type: 'object', properties: { done: { type: 'boolean' }, limit: { type: 'string' }, reason: { type: 'string' } }, required: ['done', 'reason'] } } } }];\n"
+   },
+   "name": "Brief: Sportsbet",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1648,
+    1568
+   ]
+  },
+  {
+   "parameters": {
+    "chatId": "={{ $('Nev settings').first().json.TELEGRAM_CHAT_ID }}",
+    "text": "=🫠 <b>Your funeral.</b> Hydralyte's at the door. Nev's off shift.",
+    "additionalFields": {
+     "parse_mode": "HTML",
+     "appendAttribution": false,
+     "disable_web_page_preview": true
+    }
+   },
+   "name": "Text: raw-dog it",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    1120,
+    1800
+   ]
+  },
+  {
+   "parameters": {
+    "content": "## 🚨 The damage report\nClaude writes it from your real night. Then you get one choice.",
+    "width": 1588,
+    "height": 620,
+    "color": 3
+   },
+   "name": "note-45",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    200,
+    1380
+   ]
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "https://api.browser-use.com/api/v4/runs",
+    "options": {
+     "timeout": 30000
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify($json.run) }}",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth"
+   },
+   "name": "Agent: start (sportsbet)",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    240,
+    1968
+   ]
+  },
+  {
+   "parameters": {
+    "resume": "timeInterval",
+    "amount": 30,
+    "unit": "seconds"
+   },
+   "name": "Wait 30s (sportsbet)",
+   "type": "n8n-nodes-base.wait",
+   "typeVersion": 1.1,
+   "position": [
+    416,
+    1968
+   ]
+  },
+  {
+   "parameters": {
+    "method": "GET",
+    "url": "=https://api.browser-use.com/api/v4/runs/{{ $('Agent: start (sportsbet)').first().json.id }}",
+    "options": {
+     "timeout": 30000
+    },
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth"
+   },
+   "name": "Agent: status (sportsbet)",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    592,
+    1968
+   ],
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 2000
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "c1",
+       "leftValue": "={{ ['completed','failed','cancelled'].includes($json.status) }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "looseTypeValidation": true,
+    "options": {}
+   },
+   "name": "Agent done? (sportsbet)",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2,
+   "position": [
+    768,
+    1968
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "const S = $('Nev settings').first().json;\nreturn [{ json: { body: { textQuery: 'sauna', maxResultCount: 5,\n  locationBias: { circle: { center: { latitude: S.HOME.lat, longitude: S.HOME.lng }, radius: 25000 } } } } }];\n"
+   },
+   "name": "Search body",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    944,
+    1968
+   ]
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "https://places.googleapis.com/v1/places:searchText",
+    "options": {
+     "timeout": 30000
+    },
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "X-Goog-FieldMask",
+       "value": "places.displayName,places.websiteUri,places.googleMapsUri,places.formattedAddress"
+      }
+     ]
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify($json.body) }}",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth"
+   },
+   "name": "Google Places: saunas",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1120,
+    1968
+   ],
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 2000
+  },
+  {
+   "parameters": {
+    "jsCode": "// Most saunas have no booking API. The agent uses their own booking page, and stops at payment over the cap.\nconst S = $('Nev settings').first().json;\nconst p = ($input.first().json.places || [])[0];\nif (!p) return [{ json: { skip: true, sauna: { name: 'a sauna near you', url: '' } } }];\nconst sauna = { name: p.displayName.text, url: p.websiteUri || p.googleMapsUri || '', address: p.formattedAddress || '' };\nconst task = `Book one session at ${sauna.name} for today, as close to ${S.SAUNA_TIME} as possible, on its own booking page.\nStop and return booked=false with the reason if: there is no online booking; the price is over A$${S.SAUNA_CAP_AUD}; a card number is needed that isn't saved; or a CAPTCHA or security check appears.\nReturn booked=true and the booked time once confirmed.`;\nreturn [{ json: { skip: false, sauna, run: { task, startUrl: sauna.url, profileId: S.BROWSER_PROFILE_ID, maxCostUsd: S.AGENT_MAX_USD,\n  outputSchema: { type: 'object', properties: { booked: { type: 'boolean' }, time: { type: 'string' }, reason: { type: 'string' } }, required: ['booked', 'reason'] } } } }];\n"
+   },
+   "name": "Brief: sauna",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1296,
+    1968
+   ]
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "c1",
+       "leftValue": "={{ !$json.skip }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "looseTypeValidation": true,
+    "options": {}
+   },
+   "name": "Found one?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2,
+   "position": [
+    1472,
+    1968
+   ]
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "https://api.browser-use.com/api/v4/runs",
+    "options": {
+     "timeout": 30000
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify($json.run) }}",
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth"
+   },
+   "name": "Agent: start (sauna)",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    1648,
+    1968
+   ]
+  },
+  {
+   "parameters": {
+    "resume": "timeInterval",
+    "amount": 30,
+    "unit": "seconds"
+   },
+   "name": "Wait 30s (sauna)",
+   "type": "n8n-nodes-base.wait",
+   "typeVersion": 1.1,
+   "position": [
+    1824,
+    1968
+   ]
+  },
+  {
+   "parameters": {
+    "method": "GET",
+    "url": "=https://api.browser-use.com/api/v4/runs/{{ $('Agent: start (sauna)').first().json.id }}",
+    "options": {
+     "timeout": 30000
+    },
+    "authentication": "genericCredentialType",
+    "genericAuthType": "httpHeaderAuth"
+   },
+   "name": "Agent: status (sauna)",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    2000,
+    1968
+   ],
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 2000
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "c1",
+       "leftValue": "={{ ['completed','failed','cancelled'].includes($json.status) }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "looseTypeValidation": true,
+    "options": {}
+   },
+   "name": "Agent done? (sauna)",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2,
+   "position": [
+    2176,
+    1968
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "const S = $('Nev settings').first().json;\nconst night = $('Was it a big one?').first().json;\nconst excuse = $('Claude: the excuse').first().json.content.map(c => c.text || '').join('').trim();\nif (!excuse) throw new Error('Claude returned no text for the excuse');\nconst lim = $('Agent done? (sportsbet)').first().json;\nconst limOk = lim.status === 'completed' && (lim.output || {}).done === true;\nconst s = $('Brief: sauna').first().json;\nconst r = $input.first().json;\nconst booked = !s.skip && r.status === 'completed' && (r.output || {}).booked === true;\nconst time = booked ? ((r.output || {}).time || S.SAUNA_TIME) : S.SAUNA_TIME;\nconst lines = ['🩺 <b>Damage controlled.</b>', ''];\nif (night.exAttempts > 0) lines.push(S.EX_AUTO_SEND ? `📱 Excuse sent to ${S.EX_NAME}: \"${excuse}\"` : `📱 Your excuse for ${S.EX_NAME}, if you want it:\\n${excuse}`);\nlines.push(limOk ? `🎰 Sportsbet deposit limit now ${(lim.output || {}).limit || 'at its lowest'}` : `🎰 Couldn't cap Sportsbet myself. <a href=\"${S.SPORTSBET_LIMITS_URL}\">Tap here to do it</a>`);\nlines.push(booked ? `🧖 ${s.sauna.name}, booked for ${time}` : `🧖 ${s.sauna.name}, couldn't book it. ${s.sauna.url ? `<a href=\"${s.sauna.url}\">Tap here</a>, ` : ''}I've held ${S.SAUNA_TIME} in your calendar`);\nlines.push('', 'Drink your Hydralyte.');\nconst date = new Intl.DateTimeFormat('en-CA', { timeZone: S.TIMEZONE }).format(new Date());\nreturn [{ json: { msg: lines.join('\\n'), excuse, start: `${date}T${/^\\d\\d:\\d\\d$/.test(time) ? time : S.SAUNA_TIME}:00`,\n  sendExcuse: !!S.EX_AUTO_SEND && night.exAttempts > 0, sauna: s.sauna.name } }];\n"
+   },
+   "name": "All sorted",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    2352,
+    1968
+   ]
+  },
+  {
+   "parameters": {
+    "calendar": {
+     "__rl": true,
+     "mode": "id",
+     "value": "={{ $('Nev settings').first().json.MY_CALENDAR }}"
+    },
+    "start": "={{ $json.start }}",
+    "end": "={{ DateTime.fromISO($json.start).plus({ minutes: 90 }).toISO({ includeOffset: false }) }}",
+    "additionalFields": {
+     "summary": "={{ '🧖 Sauna: ' + $('All sorted').first().json.sauna }}"
+    }
+   },
+   "name": "Hold the sauna in my calendar",
+   "type": "n8n-nodes-base.googleCalendar",
+   "typeVersion": 1.3,
+   "position": [
+    2528,
+    1968
+   ]
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "c1",
+       "leftValue": "={{ $('All sorted').first().json.sendExcuse }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "looseTypeValidation": true,
+    "options": {}
+   },
+   "name": "Send the excuse?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2,
+   "position": [
+    2704,
+    1968
+   ]
+  },
+  {
+   "parameters": {
+    "from": "={{ $('Nev settings').first().json.TWILIO_FROM }}",
+    "to": "={{ $('Nev settings').first().json.EX_NUMBER }}",
+    "message": "={{ $('All sorted').first().json.excuse }}",
+    "toWhatsapp": false,
+    "options": {}
+   },
+   "name": "Excuse to the ex (Twilio)",
+   "type": "n8n-nodes-base.twilio",
+   "typeVersion": 1,
+   "position": [
+    2880,
+    1968
+   ]
+  },
+  {
+   "parameters": {
+    "chatId": "={{ $('Nev settings').first().json.TELEGRAM_CHAT_ID }}",
+    "text": "={{ $('All sorted').first().json.msg }}",
+    "additionalFields": {
+     "parse_mode": "HTML",
+     "appendAttribution": false,
+     "disable_web_page_preview": true
+    }
+   },
+   "name": "Text: damage controlled",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    3056,
+    1968
+   ]
+  },
+  {
+   "parameters": {
+    "content": "## 🛠️ The fix\nOnly runs after you tap. The Sportsbet agent can only lower a limit, never raise it.",
+    "width": 2292,
+    "height": 470,
+    "color": 5
+   },
+   "name": "note-63",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    904,
+    1780
+   ]
+  }
+ ],
+ "connections": {
+  "Card tap (iPhone Wallet)": {
+   "main": [
+    [
+     {
+      "node": "Nev settings",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Card tap (Up Bank)": {
+   "main": [
+    [
+     {
+      "node": "Nev settings",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Ex line": {
+   "main": [
+    [
+     {
+      "node": "Nev settings",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Wake-up (iPhone Shortcut)": {
+   "main": [
+    [
+     {
+      "node": "Nev settings",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Nev settings": {
+   "main": [
+    [
+     {
+      "node": "Is it a card tap?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Is it a card tap?": {
+   "main": [
+    [
+     {
+      "node": "From Up?",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Calling the ex?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "From Up?": {
+   "main": [
+    [
+     {
+      "node": "Up: get the transaction",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Read the tap",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Up: get the transaction": {
+   "main": [
+    [
+     {
+      "node": "Read the tap",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Read the tap": {
+   "main": [
+    [
+     {
+      "node": "Don't know this merchant?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Don't know this merchant?": {
+   "main": [
+    [
+     {
+      "node": "Claude: what is this?",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Log the tap",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Claude: what is this?": {
+   "main": [
+    [
+     {
+      "node": "Claude's answer",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Claude's answer": {
+   "main": [
+    [
+     {
+      "node": "Log the tap",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Log the tap": {
+   "main": [
+    [
+     {
+      "node": "First bar after midnight?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "First bar after midnight?": {
+   "main": [
+    [
+     {
+      "node": "Text: Nev's on shift",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Calling the ex?": {
+   "main": [
+    [
+     {
+      "node": "Count it",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Was it a big one?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Was it a big one?": {
+   "main": [
+    [
+     {
+      "node": "Go?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Go?": {
+   "main": [
+    [
+     {
+      "node": "Brief: food",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Brief: food": {
+   "main": [
+    [
+     {
+      "node": "Agent: start (food)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Agent: start (food)": {
+   "main": [
+    [
+     {
+      "node": "Wait 30s (food)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Wait 30s (food)": {
+   "main": [
+    [
+     {
+      "node": "Agent: status (food)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Agent: status (food)": {
+   "main": [
+    [
+     {
+      "node": "Agent done? (food)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Agent done? (food)": {
+   "main": [
+    [
+     {
+      "node": "Result (food)",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Wait 30s (food)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Result (food)": {
+   "main": [
+    [
+     {
+      "node": "Brief: chemist",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Brief: chemist": {
+   "main": [
+    [
+     {
+      "node": "Agent: start (chemist)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Agent: start (chemist)": {
+   "main": [
+    [
+     {
+      "node": "Wait 30s (chemist)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Wait 30s (chemist)": {
+   "main": [
+    [
+     {
+      "node": "Agent: status (chemist)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Agent: status (chemist)": {
+   "main": [
+    [
+     {
+      "node": "Agent done? (chemist)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Agent done? (chemist)": {
+   "main": [
+    [
+     {
+      "node": "Result (chemist)",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Wait 30s (chemist)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Result (chemist)": {
+   "main": [
+    [
+     {
+      "node": "Write the drop",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Write the drop": {
+   "main": [
+    [
+     {
+      "node": "Text: the drop",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Text: the drop": {
+   "main": [
+    [
+     {
+      "node": "Write the report prompt",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Write the report prompt": {
+   "main": [
+    [
+     {
+      "node": "Claude: damage report",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Claude: damage report": {
+   "main": [
+    [
+     {
+      "node": "The damage report",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "The damage report": {
+   "main": [
+    [
+     {
+      "node": "Text: damage report",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Text: damage report": {
+   "main": [
+    [
+     {
+      "node": "One choice",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "One choice": {
+   "main": [
+    [
+     {
+      "node": "Damage control?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Damage control?": {
+   "main": [
+    [
+     {
+      "node": "Write the excuse prompt",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Text: raw-dog it",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Write the excuse prompt": {
+   "main": [
+    [
+     {
+      "node": "Claude: the excuse",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Claude: the excuse": {
+   "main": [
+    [
+     {
+      "node": "Brief: Sportsbet",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Brief: Sportsbet": {
+   "main": [
+    [
+     {
+      "node": "Agent: start (sportsbet)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Agent: start (sportsbet)": {
+   "main": [
+    [
+     {
+      "node": "Wait 30s (sportsbet)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Wait 30s (sportsbet)": {
+   "main": [
+    [
+     {
+      "node": "Agent: status (sportsbet)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Agent: status (sportsbet)": {
+   "main": [
+    [
+     {
+      "node": "Agent done? (sportsbet)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Agent done? (sportsbet)": {
+   "main": [
+    [
+     {
+      "node": "Search body",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Wait 30s (sportsbet)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Search body": {
+   "main": [
+    [
+     {
+      "node": "Google Places: saunas",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Google Places: saunas": {
+   "main": [
+    [
+     {
+      "node": "Brief: sauna",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Brief: sauna": {
+   "main": [
+    [
+     {
+      "node": "Found one?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Found one?": {
+   "main": [
+    [
+     {
+      "node": "Agent: start (sauna)",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "All sorted",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Agent: start (sauna)": {
+   "main": [
+    [
+     {
+      "node": "Wait 30s (sauna)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Wait 30s (sauna)": {
+   "main": [
+    [
+     {
+      "node": "Agent: status (sauna)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Agent: status (sauna)": {
+   "main": [
+    [
+     {
+      "node": "Agent done? (sauna)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Agent done? (sauna)": {
+   "main": [
+    [
+     {
+      "node": "All sorted",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Wait 30s (sauna)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "All sorted": {
+   "main": [
+    [
+     {
+      "node": "Hold the sauna in my calendar",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Hold the sauna in my calendar": {
+   "main": [
+    [
+     {
+      "node": "Send the excuse?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Send the excuse?": {
+   "main": [
+    [
+     {
+      "node": "Excuse to the ex (Twilio)",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Text: damage controlled",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Excuse to the ex (Twilio)": {
+   "main": [
+    [
+     {
+      "node": "Text: damage controlled",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1"
+ }
+}

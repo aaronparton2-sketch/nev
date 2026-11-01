@@ -1,0 +1,718 @@
+{
+ "name": "🎬 NEV - hangover (demo: one click, everything to your phone)",
+ "nodes": [
+  {
+   "parameters": {},
+   "name": "Run (manual)",
+   "type": "n8n-nodes-base.manualTrigger",
+   "typeVersion": 1,
+   "position": [
+    40,
+    368
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "// ============ NEV SETTINGS (DEMO) ============  edit these, nothing else\n// One click runs the whole night. Everything comes to YOU, and nothing is bought.\nreturn [{ json: {\n  DEMO: true,\n  ME: 'Mate',\n  EX_NAME: 'Jess',\n  TELEGRAM_CHAT_ID: 'YOUR_TELEGRAM_CHAT_ID',\n  TIMEZONE: 'Australia/Perth',\n  HOME: { lat: -31.9523, lng: 115.8613 },\n  BIG_NIGHT_STEPS: 6000,                   // steps between midnight and 2am that mean \"a big one\"\n  FOOD: ['Maccas Big Brekkie Burger'],\n  CHEMIST: ['Blue Powerade', 'Hydralyte', 'Panadol'],\n  SAUNA_OVERRIDE: '',                      // type a venue here to use it instead of the closest one on the map\n  SAUNA_TIME: '15:00',\n  MODEL: 'claude-sonnet-5-5',\n} }];\n"
+   },
+   "name": "Nev settings",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    240,
+    368
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "// A big Saturday night. Simulated: the demo never touches your bank or your watch.\nconst S = $('Nev settings').first().json;\nreturn [{ json: {\n  tabs: [\n    { at: '22:41', merchant: 'The Rusty Anchor Bar', amount: 16 },\n    { at: '23:37', merchant: 'The Rusty Anchor Bar', amount: 32 },\n    { at: '00:12', merchant: 'The Rusty Anchor Bar', amount: 48 },\n    { at: '00:44', merchant: 'Sportsbet', amount: 50 },\n    { at: '01:03', merchant: 'The Rusty Anchor Bar', amount: 64 },\n    { at: '01:21', merchant: 'Sportsbet', amount: 100 },\n    { at: '01:58', merchant: 'Kebab Kingdom', amount: 22.5 },\n    { at: '02:16', merchant: 'Uber Trip', amount: 38.4 },\n  ],\n  steps: 9412,\n  exAttempts: 3,\n} }];\n"
+   },
+   "name": "Tonight's tab (simulated)",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    416,
+    368
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "const KIND_RULES = [\n  ['sportsbet', /sportsbet|ladbrokes|tab\\b|neds|bet365|betr\\b|pointsbet|unibet/i],\n  ['kebab', /kebab|hsp|souvlaki|gyro|pizza|maccas|mcdonald|hungry jack|kfc|red rooster|chicken treat|takeaway/i],\n  ['uber', /uber|didi|ola\\b|taxi|13cabs/i],\n  ['bar', /\\bbar\\b|pub\\b|tavern|hotel|brewery|brewing|nightclub|club\\b|lounge|arms\\b|inn\\b|anchor/i],\n];\nconst kindOf = (m, upCategory) => {\n  if (upCategory === 'pubs-and-bars') return 'bar';\n  for (const [k, re] of KIND_RULES) if (re.test(m || '')) return k;\n  return 'unknown';\n};\n\n// Is this a big one? A bar tap after midnight AND a huge step count between 12 and 2am.\nconst S = $('Nev settings').first().json;\nconst n = $input.first().json;\nconst tabs = n.tabs.map(t => ({ ...t, kind: kindOf(t.merchant) }));\nconst afterMidnight = t => t.at < '06:00';\nconst sum = k => tabs.filter(t => t.kind === k).reduce((a, t) => a + t.amount, 0);\nconst firstBar = tabs.find(t => t.kind === 'bar' && afterMidnight(t));\nreturn [{ json: { tabs, steps: n.steps, exAttempts: n.exAttempts, firstBar,\n  beers: sum('bar'), kebabs: sum('kebab'), sportsbet: sum('sportsbet'), ubers: sum('uber'),\n  total: tabs.reduce((a, t) => a + t.amount, 0),\n  bigOne: !!firstBar && n.steps >= S.BIG_NIGHT_STEPS } }];\n"
+   },
+   "name": "Read the night",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    592,
+    368
+   ]
+  },
+  {
+   "parameters": {
+    "chatId": "={{ $('Nev settings').first().json.TELEGRAM_CHAT_ID }}",
+    "text": "=🩺 <b>Nev's on shift.</b>\n{{ $json.firstBar.merchant }}, ${{ $json.firstBar.amount }}, {{ $json.firstBar.at }}.\nTomorrow's care package is started. Carry on.",
+    "additionalFields": {
+     "parse_mode": "HTML",
+     "appendAttribution": false,
+     "disable_web_page_preview": true
+    }
+   },
+   "name": "Text: Nev's on shift",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    768,
+    368
+   ]
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "c1",
+       "leftValue": "={{ $('Read the night').first().json.bigOne }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "looseTypeValidation": true,
+    "options": {}
+   },
+   "name": "A big one?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2,
+   "position": [
+    944,
+    368
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "// Simulated: the demo orders nothing. The full build sends two browser agents.\nconst S = $('Nev settings').first().json;\nconst msg = `💊 <b>You're awake. Care package ordered.</b>\\n\\n🍔 ${S.FOOD.join(', ')}\\n🥤 ${S.CHEMIST.join(', ')}\\n\\n🛵 At your door in about 25 minutes. Don't look at your phone yet.`;\nreturn [{ json: { msg } }];\n"
+   },
+   "name": "Awake: the drop (simulated)",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    1120,
+    368
+   ]
+  },
+  {
+   "parameters": {
+    "chatId": "={{ $('Nev settings').first().json.TELEGRAM_CHAT_ID }}",
+    "text": "={{ $json.msg }}",
+    "additionalFields": {
+     "parse_mode": "HTML",
+     "appendAttribution": false,
+     "disable_web_page_preview": true
+    }
+   },
+   "name": "Text: the drop",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    1296,
+    368
+   ]
+  },
+  {
+   "parameters": {
+    "content": "## 🌙 The night\nCard taps and the step count. Simulated, so the demo never touches your bank.",
+    "width": 884,
+    "height": 420,
+    "color": 7
+   },
+   "name": "note-8",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    200,
+    180
+   ]
+  },
+  {
+   "parameters": {
+    "content": "## 🍔 The drop\nSimulated here. The full build sends two browser agents.",
+    "width": 356,
+    "height": 420,
+    "color": 4
+   },
+   "name": "note-9",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    1080,
+    180
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "// Hands the night to Claude. It writes the report, the numbers stay ours.\nconst S = $('Nev settings').first().json;\nconst n = $('Read the night').first().json;\nconst money = v => '$' + Number(v).toFixed(2).replace(/\\.00$/, '');\nconst facts = { steps_midnight_to_2am: n.steps, calls_or_texts_to_ex: n.exAttempts, ex_name: S.EX_NAME,\n  beers: money(n.beers), kebabs_and_late_food: money(n.kebabs), sportsbet: money(n.sportsbet),\n  ubers: money(n.ubers), total: money(n.total) };\nconst prompt = `You are Nev, a deadpan Australian nurse who looks after ${S.ME} the morning after a big night.\nWrite the damage report for Telegram from these facts only. Never invent a number or a detail.\n${JSON.stringify(facts)}\nRules: start with one dry line. Then one short line each for the ex attempts, beers, kebabs, Sportsbet and the total, each with an emoji.\nUnder 70 words. Plain text only. Rip the bandaid off, but be on their side. No em dashes.`;\nreturn [{ json: { body: { model: S.MODEL, max_tokens: 2000, messages: [{ role: 'user', content: prompt }] } } }];\n"
+   },
+   "name": "Write the report prompt",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    240,
+    848
+   ]
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "https://api.anthropic.com/v1/messages",
+    "options": {
+     "timeout": 90000
+    },
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "anthropic-version",
+       "value": "2023-06-01"
+      }
+     ]
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify($json.body) }}",
+    "authentication": "predefinedCredentialType",
+    "nodeCredentialType": "anthropicApi"
+   },
+   "name": "Claude: damage report",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    416,
+    848
+   ],
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 2000
+  },
+  {
+   "parameters": {
+    "jsCode": "const text = $input.first().json.content.map(c => c.text || '').join('').trim();\nif (!text) throw new Error('Claude returned no text for the damage report');\nreturn [{ json: { report: '🚨 <b>THE DAMAGE REPORT</b>\\n\\n' + text.replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c])) } }];\n"
+   },
+   "name": "The damage report",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    592,
+    848
+   ]
+  },
+  {
+   "parameters": {
+    "chatId": "={{ $('Nev settings').first().json.TELEGRAM_CHAT_ID }}",
+    "text": "={{ $json.report }}",
+    "additionalFields": {
+     "parse_mode": "HTML",
+     "appendAttribution": false,
+     "disable_web_page_preview": true
+    }
+   },
+   "name": "Text: damage report",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    768,
+    848
+   ]
+  },
+  {
+   "parameters": {
+    "operation": "sendAndWait",
+    "chatId": "={{ $('Nev settings').first().json.TELEGRAM_CHAT_ID }}",
+    "message": "=How do you want to play this? Damage control, or raw-dog the Sunday scaries?",
+    "responseType": "approval",
+    "approvalOptions": {
+     "values": {
+      "approvalType": "double",
+      "approveLabel": "🛠️ Damage control",
+      "disapproveLabel": "🫠 Raw-dog the Sunday scaries"
+     }
+    },
+    "options": {
+     "appendAttribution": false,
+     "limitWaitTime": {
+      "values": {
+       "limitType": "afterTimeInterval",
+       "resumeAmount": 120,
+       "resumeUnit": "minutes"
+      }
+     }
+    }
+   },
+   "name": "One choice",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    944,
+    848
+   ]
+  },
+  {
+   "parameters": {
+    "conditions": {
+     "options": {
+      "caseSensitive": true,
+      "leftValue": "",
+      "typeValidation": "loose",
+      "version": 2
+     },
+     "conditions": [
+      {
+       "id": "c1",
+       "leftValue": "={{ $json.data.approved }}",
+       "rightValue": "",
+       "operator": {
+        "type": "boolean",
+        "operation": "true",
+        "singleValue": true
+       }
+      }
+     ],
+     "combinator": "and"
+    },
+    "looseTypeValidation": true,
+    "options": {}
+   },
+   "name": "Damage control?",
+   "type": "n8n-nodes-base.if",
+   "typeVersion": 2,
+   "position": [
+    1120,
+    848
+   ]
+  },
+  {
+   "parameters": {
+    "content": "## 🚨 The damage report\nReal: Claude writes it from the night's numbers, and the buttons land on your phone.",
+    "width": 1060,
+    "height": 420,
+    "color": 3
+   },
+   "name": "note-16",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    200,
+    660
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "const S = $('Nev settings').first().json;\nconst n = $('Read the night').first().json;\nconst prompt = `${S.ME} tried to contact their ex ${S.EX_NAME} ${n.exAttempts} times last night while drunk.\nWrite the text ${S.ME} sends this morning: a short, funny, face-saving apology that asks for nothing and doesn't reopen anything.\nUnder 25 words. No emojis. No em dashes. Output only the message.`;\nreturn [{ json: { body: { model: S.MODEL, max_tokens: 1500, messages: [{ role: 'user', content: prompt }] } } }];\n"
+   },
+   "name": "Write the excuse prompt",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    240,
+    1328
+   ]
+  },
+  {
+   "parameters": {
+    "method": "POST",
+    "url": "https://api.anthropic.com/v1/messages",
+    "options": {
+     "timeout": 90000
+    },
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "anthropic-version",
+       "value": "2023-06-01"
+      }
+     ]
+    },
+    "sendBody": true,
+    "specifyBody": "json",
+    "jsonBody": "={{ JSON.stringify($json.body) }}",
+    "authentication": "predefinedCredentialType",
+    "nodeCredentialType": "anthropicApi"
+   },
+   "name": "Claude: the excuse",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    416,
+    1328
+   ],
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 2000
+  },
+  {
+   "parameters": {
+    "method": "GET",
+    "url": "=https://nominatim.openstreetmap.org/search?q=sauna&format=jsonv2&limit=20&bounded=1&viewbox={{ $('Nev settings').first().json.HOME.lng - 0.25 }},{{ $('Nev settings').first().json.HOME.lat + 0.25 }},{{ $('Nev settings').first().json.HOME.lng + 0.25 }},{{ $('Nev settings').first().json.HOME.lat - 0.25 }}",
+    "options": {
+     "timeout": 30000
+    },
+    "sendHeaders": true,
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "User-Agent",
+       "value": "romeo-date-night-n8n/1.0"
+      }
+     ]
+    }
+   },
+   "name": "Find saunas (OpenStreetMap)",
+   "type": "n8n-nodes-base.httpRequest",
+   "typeVersion": 4.2,
+   "position": [
+    592,
+    1328
+   ],
+   "retryOnFail": true,
+   "maxTries": 3,
+   "waitBetweenTries": 2000,
+   "alwaysOutputData": true
+  },
+  {
+   "parameters": {
+    "jsCode": "// The closest real sauna, from OpenStreetMap (Nominatim: free, no key).\nconst S = $('Nev settings').first().json;\nconst h = S.HOME;\nconst km = (a, b, c, d) => { const R = 6371, r = Math.PI / 180;\n  const x = Math.sin((c - a) * r / 2) ** 2 + Math.cos(a * r) * Math.cos(c * r) * Math.sin((d - b) * r / 2) ** 2;\n  return 2 * R * Math.asin(Math.sqrt(x)); };\nconst list = $input.all().map(i => i.json).filter(s => s && s.lat)\n  .map(s => ({ name: (s.name || s.display_name.split(',')[0]).trim(), km: km(h.lat, h.lng, +s.lat, +s.lon) }))\n  .sort((a, b) => a.km - b.km);\nif (S.SAUNA_OVERRIDE) return [{ json: { sauna: { name: S.SAUNA_OVERRIDE, km: null } } }];\nreturn [{ json: { sauna: list[0] || { name: 'the closest sauna', km: null } } }];\n"
+   },
+   "name": "Closest sauna",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    768,
+    1328
+   ]
+  },
+  {
+   "parameters": {
+    "jsCode": "// Simulated: Sportsbet and the sauna booking. The excuse and the sauna's name are real.\nconst S = $('Nev settings').first().json;\nconst excuse = $('Claude: the excuse').first().json.content.map(c => c.text || '').join('').trim();\nif (!excuse) throw new Error('Claude returned no text for the excuse');\nconst sauna = $('Closest sauna').first().json.sauna;\nconst dist = sauna.km != null ? ` (${sauna.km.toFixed(1)} km away)` : '';\nconst msg = `🩺 <b>Damage controlled.</b>\\n\\n📱 Excuse sent to ${S.EX_NAME}\\n🎰 Sportsbet deposit limit capped\\n🧖 ${sauna.name}${dist}, booked for ${S.SAUNA_TIME}\\n\\nDrink your Hydralyte.`;\nreturn [{ json: { excuse, msg } }];\n"
+   },
+   "name": "All sorted (simulated)",
+   "type": "n8n-nodes-base.code",
+   "typeVersion": 2,
+   "position": [
+    944,
+    1328
+   ]
+  },
+  {
+   "parameters": {
+    "chatId": "={{ $('Nev settings').first().json.TELEGRAM_CHAT_ID }}",
+    "text": "=📲 <b>Nev → {{ $('Nev settings').first().json.EX_NAME }}</b>\n{{ $json.excuse }}",
+    "additionalFields": {
+     "parse_mode": "HTML",
+     "appendAttribution": false,
+     "disable_web_page_preview": true
+    }
+   },
+   "name": "Text: excuse for the ex",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    1120,
+    1328
+   ]
+  },
+  {
+   "parameters": {
+    "chatId": "={{ $('Nev settings').first().json.TELEGRAM_CHAT_ID }}",
+    "text": "={{ $('All sorted (simulated)').first().json.msg }}",
+    "additionalFields": {
+     "parse_mode": "HTML",
+     "appendAttribution": false,
+     "disable_web_page_preview": true
+    }
+   },
+   "name": "Text: damage controlled",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    1296,
+    1328
+   ]
+  },
+  {
+   "parameters": {
+    "chatId": "={{ $('Nev settings').first().json.TELEGRAM_CHAT_ID }}",
+    "text": "=🫠 <b>Your funeral.</b> Hydralyte's at the door. Nev's off shift.",
+    "additionalFields": {
+     "parse_mode": "HTML",
+     "appendAttribution": false,
+     "disable_web_page_preview": true
+    }
+   },
+   "name": "Text: raw-dog it",
+   "type": "n8n-nodes-base.telegram",
+   "typeVersion": 1.2,
+   "position": [
+    240,
+    1560
+   ]
+  },
+  {
+   "parameters": {
+    "content": "## 🛠️ The fix\nReal: the excuse and the closest sauna. Simulated: Sportsbet and the booking.",
+    "width": 1236,
+    "height": 620,
+    "color": 5
+   },
+   "name": "note-25",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    200,
+    1140
+   ]
+  }
+ ],
+ "connections": {
+  "Run (manual)": {
+   "main": [
+    [
+     {
+      "node": "Nev settings",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Nev settings": {
+   "main": [
+    [
+     {
+      "node": "Tonight's tab (simulated)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Tonight's tab (simulated)": {
+   "main": [
+    [
+     {
+      "node": "Read the night",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Read the night": {
+   "main": [
+    [
+     {
+      "node": "Text: Nev's on shift",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Text: Nev's on shift": {
+   "main": [
+    [
+     {
+      "node": "A big one?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "A big one?": {
+   "main": [
+    [
+     {
+      "node": "Awake: the drop (simulated)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Awake: the drop (simulated)": {
+   "main": [
+    [
+     {
+      "node": "Text: the drop",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Text: the drop": {
+   "main": [
+    [
+     {
+      "node": "Write the report prompt",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Write the report prompt": {
+   "main": [
+    [
+     {
+      "node": "Claude: damage report",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Claude: damage report": {
+   "main": [
+    [
+     {
+      "node": "The damage report",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "The damage report": {
+   "main": [
+    [
+     {
+      "node": "Text: damage report",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Text: damage report": {
+   "main": [
+    [
+     {
+      "node": "One choice",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "One choice": {
+   "main": [
+    [
+     {
+      "node": "Damage control?",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Damage control?": {
+   "main": [
+    [
+     {
+      "node": "Write the excuse prompt",
+      "type": "main",
+      "index": 0
+     }
+    ],
+    [
+     {
+      "node": "Text: raw-dog it",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Write the excuse prompt": {
+   "main": [
+    [
+     {
+      "node": "Claude: the excuse",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Claude: the excuse": {
+   "main": [
+    [
+     {
+      "node": "Find saunas (OpenStreetMap)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Find saunas (OpenStreetMap)": {
+   "main": [
+    [
+     {
+      "node": "Closest sauna",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Closest sauna": {
+   "main": [
+    [
+     {
+      "node": "All sorted (simulated)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "All sorted (simulated)": {
+   "main": [
+    [
+     {
+      "node": "Text: excuse for the ex",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Text: excuse for the ex": {
+   "main": [
+    [
+     {
+      "node": "Text: damage controlled",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1"
+ }
+}
